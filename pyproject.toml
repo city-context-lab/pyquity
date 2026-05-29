@@ -9,7 +9,7 @@ description = "Python toolkit for building and analyzing multimodal street and t
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-authors = [{ name="pannawatr"}]
+authors = [{ name="pannawatrdev"}]
 classifiers = ["Programming Language :: Python :: 3"]
 dependencies = ["osmnx>=2.0.0", "geopandas>=1.0.0", "shapely>=2.0.0", "networkx>=3.2", "numpy>=1.23", "pandas>=2.0", "scipy>=1.10", "matplotlib>=3.7", "pyproj>=3.5", "partridge>=1.1", "geopy>=2.4", "scikit-learn>=1.6"]
 
