@@ -1,0 +1,8 @@
+.venv
+pyquity/.venv
+
+.DS_Store
+pyquity/.DS_Store
+
+dist/
+datasets/
