@@ -42,6 +42,8 @@ class Equity:
             # Compute shortest paths from the selected grid node to all other nodes
             if weight == 'travel_time':
                 paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time)
+            elif weight == 'total_time':
+                path = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
             else:
                 paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
 
@@ -115,6 +117,8 @@ class Equity:
             # Compute shortest paths (Dijkstra) from the grid node to all reachable nodes
             if weight == 'travel_time':
                 paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time)
+            elif weight == 'total_time':
+                paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
             else:
                 paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
 

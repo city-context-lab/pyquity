@@ -13,8 +13,24 @@ SPEED = {
     'walk': 5 * 1000 / 3600,
     'bike': 20 * 1000 / 3600,
     'transfer': 5 * 1000 / 3600,
-    'transit': 22 * 1000 / 3600
+    'transit': 22 * 1000 / 3600,
 }
+
+TIME_PERIODS = {
+      'morning': (5 * 3600,  9 * 3600),
+      'day':     (11 * 3600,  16 * 3600),
+      'evening': (16 * 3600, 20 * 3600),
+  }
+
+def compute_headways(stop_times: pd.DataFrame) -> dict:
+    headways = {}
+    for stop_id, group in stop_times.groupby('stop_id'):
+        times = group.sort_values('departure_time')['departure_time'].values
+        diffs = np.diff(times)
+        # Filter out negative diffs (next-day wrap or data errors)
+        diffs = diffs[(diffs > 0) & (diffs < 7200)]
+        headways[stop_id] = float(np.mean(diffs) / 60) if len(diffs) > 0 else 0.0
+    return headways
 
 def multimodal_graph(G_osm: nx.MultiDiGraph, G_gtfs: nx.MultiDiGraph, k: int=1):
     # Relabel GTFS nodes with unique integers to avoid ID collisions with OSM graph
@@ -52,7 +68,7 @@ def multimodal_graph(G_osm: nx.MultiDiGraph, G_gtfs: nx.MultiDiGraph, k: int=1):
     # Return the graph
     return G
 
-def graph_from_gtfs(gtfs: str) -> nx.MultiDiGraph:
+def graph_from_gtfs(gtfs: str, period: str = None) -> nx.MultiDiGraph:
     # Read available service dates
     date = ptg.read_service_ids_by_date(gtfs)
     if not date:
@@ -65,15 +81,33 @@ def graph_from_gtfs(gtfs: str) -> nx.MultiDiGraph:
     # Extract GTFS tables
     stop_times = feed.stop_times
     trips = feed.trips
+
+    if period is not None:
+          if period.lower() not in TIME_PERIODS:
+              raise ValueError(f"period must be one of {list(TIME_PERIODS.keys())}")
+          start, end = TIME_PERIODS[period.lower()]
+          stop_times = stop_times[
+              (stop_times['departure_time'] >= start) &
+              (stop_times['departure_time'] < end)
+          ]
+          valid_trips = stop_times['trip_id'].unique()
+          trips = trips[trips['trip_id'].isin(valid_trips)]
+
     stops = feed.stops
     shapes = feed.shapes
 
     # Initialize a multidirected graph
     G = nx.MultiDiGraph()
 
+      
+
     # Add each transit stop as a node in the graph
+    headways = compute_headways(stop_times)
     for _, row in stops.iterrows():
-        G.add_node(row['stop_id'], name=row['stop_name'], x=row['geometry'].x, y=row['geometry'].y)
+        sid = row['stop_id']
+        waiting_time = headways.get(sid, 0.0) / 2
+        G.add_node(sid, name=row['stop_name'], x=row['geometry'].x, y=row['geometry'].y, waiting_time=waiting_time)
+        
 
     # Ensure all shape geometries are LineString
     shapes['geometry'] = shapes['geometry'].apply( lambda geoms: geoms if isinstance(geoms, LineString) else LineString(geoms))
@@ -123,6 +157,9 @@ def graph_from_gtfs(gtfs: str) -> nx.MultiDiGraph:
                     mode='transit',
                     travel_time=travel_time
                 )
+    for u, v, data in G.edges(data=True):
+          waiting = G.nodes[u].get('waiting_time', 0)
+          data['total_time'] = waiting + data.get('travel_time', 0)
 
     # Set the graph's CRS based on the stops' coordinates
     if stops.estimate_utm_crs() is not None:
