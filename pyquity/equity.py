@@ -40,12 +40,10 @@ class Equity:
                 amenity_nodes = self.walk_amenity_nodes
 
             # Compute shortest paths from the selected grid node to all other nodes
-            if weight == 'travel_time':
-                paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time)
-            elif weight == 'total_time':
-                path = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
+            if weight in ('travel_time', 'total_time'):
+                costs, paths = nx.single_source_dijkstra(G_current, source=grid_node, weight=weight, cutoff=served_time)
             else:
-                paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
+                costs, paths = nx.single_source_dijkstra(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
 
             # Iterate over each amenity node to check if it's reachable within the time limit
             for amenity_node in amenity_nodes:
@@ -55,18 +53,21 @@ class Equity:
 
                 # Check if the amenity is reachable in the computed paths
                 if amenity_node in paths:
-                    try:
-                        # Get the route as a list of node IDs and calculate distance and travel time using pyquity
-                        route = [int(node) for node in paths[int(amenity_node)]]
-                        distance, travel_time = pyquity.route_length_by_mode(G_current, route)
-                        total_time = sum(travel_time.values())
-
-                        # If total travel time is within the served_time threshold
-                        if total_time <= served_time:
+                    if weight in ('travel_time', 'total_time'):
+                        # Dijkstra cost is already in minutes (includes waiting for total_time)
+                        if costs[amenity_node] <= served_time:
                             self.grid.loc[self.grid["grid_id"] == grid_node, "served"] = 1
                             break
-                    except:
-                        continue
+                    else:
+                        try:
+                            route = [int(node) for node in paths[int(amenity_node)]]
+                            distance, travel_time = pyquity.route_length_by_mode(G_current, route)
+                            total_time = sum(travel_time.values())
+                            if total_time <= served_time:
+                                self.grid.loc[self.grid["grid_id"] == grid_node, "served"] = 1
+                                break
+                        except:
+                            continue
 
         # Return GeoDataFrame of grid
         return self.grid
@@ -115,24 +116,26 @@ class Equity:
                     grid_node = int(grid_row.get('grid_id'))
 
             # Compute shortest paths (Dijkstra) from the grid node to all reachable nodes
-            if weight == 'travel_time':
-                paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time)
-            elif weight == 'total_time':
-                paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
+            if weight in ('travel_time', 'total_time'):
+                costs, paths = nx.single_source_dijkstra(G_current, source=grid_node, weight=weight, cutoff=served_time)
             else:
-                paths = nx.single_source_dijkstra_path(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
+                costs, paths = nx.single_source_dijkstra(G_current, source=grid_node, weight=weight, cutoff=served_time * (22 * 1000 / 3600) * 60)
 
             # Check each amenity node to see if it is reachable and increment count
             for amenity_node in amenity_nodes:
                 if amenity_node in paths:
-                    try:
-                        route = [int(node) for node in paths[int(amenity_node)]]
-                        distance, travel_time = pyquity.route_length_by_mode(G_current, route)
-                        total_time = sum(travel_time.values())
-                        if total_time <= served_time:
+                    if weight in ('travel_time', 'total_time'):
+                        # Dijkstra cost is already in minutes (includes waiting for total_time)
+                        if costs[amenity_node] <= served_time:
                             self.grid.at[idx, "count_served"] += 1
-
-                    except:
-                        continue
+                    else:
+                        try:
+                            route = [int(node) for node in paths[int(amenity_node)]]
+                            distance, travel_time = pyquity.route_length_by_mode(G_current, route)
+                            total_time = sum(travel_time.values())
+                            if total_time <= served_time:
+                                self.grid.at[idx, "count_served"] += 1
+                        except:
+                            continue
 
         return self.grid

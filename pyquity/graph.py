@@ -58,8 +58,8 @@ def multimodal_graph(G_osm: nx.MultiDiGraph, G_gtfs: nx.MultiDiGraph, k: int=1):
 
         length = distance(point_u, point_v).m
         travel_time = length / SPEED['transfer'] / 60
-        G.add_edge(stop_id, osm_node, mode="transfer", length=length, travel_time=travel_time)
-        G.add_edge(osm_node, stop_id, mode="transfer", length=length, travel_time=travel_time)
+        G.add_edge(stop_id, osm_node, mode="transfer", length=length, travel_time=travel_time, total_time=travel_time)
+        G.add_edge(osm_node, stop_id, mode="transfer", length=length, travel_time=travel_time, total_time=travel_time)
 
     # Set the graph's CRS to WGS84 (EPSG:4326)
     if G.graph.get('crs') is not None:
@@ -178,6 +178,7 @@ def graph_from_place(place_name: str, network_type: str):
     for u, v, k, data in G.edges(keys=True, data=True):
         data['mode'] = network_type
         data['travel_time'] = data['length'] / SPEED[network_type] / 60
+        data['total_time'] = data['travel_time']
     
     # Set the graph's CRS to WGS84 (EPSG:4326)
     if G.graph.get('crs') is not None:
